@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: data-financial
+  main:
+    allow-bean-definition-overriding: true
+
+  datasource:
+    mysql:
+      jdbc-url: jdbc:mysql://192.168.11.11:3306/
+      username: mariadb
+      password: Mariadb1234!@#$
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      auto-commit: true
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      maximum-pool-size: 10
