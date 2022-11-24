@@ -45,10 +45,11 @@ public class DealDataImpl {
 
     private static final Logger logger = LoggerFactory.getLogger(DealDataImpl.class);
 
-    private final static int deal_year_month = 202206;
-    private final static int deal_year_month_channel = 20221;
+    private final static int deal_year_month_custom = 20204;
+    // 不变
+    private final static int deal_year_month_channel = 20201;
 
-    private final static int deal_year = 2021;
+    private final static int deal_year = 2020;
     private final static String deal_month = "101112";
 
     private final static Set<Integer> appsUsedIds = Sets.newHashSet();
@@ -58,10 +59,8 @@ public class DealDataImpl {
 
     public void updateFinancial(int begin, int end){
         List<DataFinancial> d = reportFinancialDAO.getFinancialByIds(begin, end);
-        Map<Integer, String> idWeight
-                = getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
         for (DataFinancial e : d) {
-            e.setDateInt(deal_year_month);
+            e.setDateInt(deal_year_month_custom);
             // 客户类型和税率
             setTaxRateAndCusType(e);
             // 一口价
@@ -70,9 +69,8 @@ public class DealDataImpl {
             setChannel(e);
             // 除税收入
             setReportIncome(e);
-
-            setApportion(e, idWeight);
-
+            // 依赖数据库的结果，现在还没有
+            // setApportion(e, idWeight);
             reportFinancialDAO.updateFinancial(e);
         }
     }
@@ -81,9 +79,7 @@ public class DealDataImpl {
         List<DataFinancial> d = reportFinancialDAO.getFinancialByIds(begin, end);
         for (DataFinancial e : d) {
             setApportion(e, idWeight);
-//            reportFinancialDAO.updateFinancial(e);
-//            logger.info("跟新的id是:{}", e.getId());
-//            System.out.println(JSON.toJSONString(e, true));
+            reportFinancialDAO.updateFinancial(e);
         }
     }
 
@@ -101,7 +97,7 @@ public class DealDataImpl {
                 = getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
 
         for (DataFinancial e : d) {
-            e.setDateInt(deal_year_month);
+            e.setDateInt(deal_year_month_custom);
             // 客户类型和税率
             setTaxRateAndCusType(e);
             // 一口价
@@ -287,6 +283,7 @@ public class DealDataImpl {
                 origin.setAppDyks(appV);
             }
             if(ApportionType.fdfl.getCode().equalsIgnoreCase(app.getApportionType())){
+                app.getChannel()
                 origin.setAppFdfl(appV);
             }
             if(ApportionType.hyjf.getCode().equalsIgnoreCase(app.getApportionType())){
@@ -297,8 +294,8 @@ public class DealDataImpl {
 
 
     private <T> void  writeToJsonFile(Collection<T> v){
-
-        String path = "C:\\Users\\DP\\Downloads\\lost.json";
+        String fileName = deal_year + deal_month + "lost.json";
+        String path = "C:\\Users\\DP\\Downloads\\" + fileName;
 
         try (PrintWriter out = new PrintWriter(new FileWriter(path))) {
             Gson gson = new Gson();

@@ -103,7 +103,7 @@ public class FinancialTest {
     @Test
     public void testUpdateOne(){
         // 419034 没找到
-        int b = 39171;
+        int b = 1034208;
         impl.dealOne(b,b);
     }
 
@@ -147,6 +147,8 @@ public class FinancialTest {
                 ignored.printStackTrace();
             }
         }
+        // 导出丢失的
+        impl.exportLost();
     }
 
 
@@ -156,7 +158,8 @@ public class FinancialTest {
         int begin = 1;
         int gap = 10000;
         long end = reportFinancialDAO.getMaxFinancialId() + 1;
-        Map<Integer, String> idWeight = impl.getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
+        Map<Integer, String> idWeight =
+                impl.getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
         List<Future<?>> f = Lists.newArrayList();
         while (begin < end){
             int finalBegin = begin;
@@ -180,7 +183,7 @@ public class FinancialTest {
     public void testUpdateOneApp(){
         // 419034 没找到
         Map<Integer, String> idWeight = impl.getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
-        int b = 723347;
+        int b = 517887;
         impl.updateFinancialApp(b,b,idWeight);
     }
 
