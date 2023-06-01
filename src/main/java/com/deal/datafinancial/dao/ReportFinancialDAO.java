@@ -6,8 +6,11 @@ import com.deal.datafinancial.model.DataApportion;
 import com.deal.datafinancial.model.DataChannel;
 import com.deal.datafinancial.model.DataCustomer;
 import com.deal.datafinancial.model.DataFinancial;
+import com.deal.datafinancial.model.DataFinancialDeal;
+import com.deal.datafinancial.model.DataFinancialSuit;
 import com.deal.datafinancial.model.DataMaterialPrice;
 import com.deal.datafinancial.model.dto.DataFinancialDTO;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
@@ -42,6 +45,7 @@ public interface ReportFinancialDAO {
     List<DataChannel> getAllChannels();
 
 
+
     @Results({
             @Result(property = "orgCode", column = "org_code"),
             @Result(property = "name", column = "Unitcode"),
@@ -51,15 +55,37 @@ public interface ReportFinancialDAO {
             @Result(property = "channel", column = "channel"),
             @Result(property = "ncaltaxmnyRestore", column = "NCALTAXMNY_restore"),
             @Result(property = "incomeShare", column = "Income_share"),
-            @Result(property = "reportIncome", column = "report_income")
+            @Result(property = "reportIncome", column = "report_income"),
+            @Result(property = "month", column = "month"),
+            @Result(property = "year", column = "year")
     })
     @Select(value = "<script> " +
             "  SELECT * FROM `dp_financial`.`data_channel` " +
-            "  where org_code = #{orgCode} and bill_type = #{billType} and cus_type = #{cusType} and date_int = #{dateInt}  </script> ")
+            "  where org_code = #{orgCode} " +
+            "    <choose>" +
+            "        <when test='billType !=null'> " +
+            "            and bill_type = #{billType} " +
+            "        </when>" +
+            "        <otherwise>" +
+            "            and bill_type is NULL " +
+            "        </otherwise>" +
+            "    </choose>" +
+            "   and cus_type = #{cusType}  " +
+            "    <choose>" +
+            "        <when test='ecommercePlatform !=null'> " +
+            "            and ecommerce_platform = #{ecommercePlatform} " +
+            "        </when>" +
+            "        <otherwise>" +
+            "            and ecommerce_platform is NULL " +
+            "        </otherwise>" +
+            "    </choose>" +
+            "  and year = #{year} and month = #{month} </script> ")
     DataChannel getByCondi(@Param("orgCode") String orgCode,
                            @Param("billType") String billType,
                            @Param("cusType") String cusType,
-                           @Param("dateInt") Integer dateInt);
+                           @Param("ecommercePlatform") String ecommercePlatform,
+                           @Param("year") String year,
+                           @Param("month") String month);
 
     @Results({
             @Result(property = "id", column = "id"),
@@ -80,6 +106,26 @@ public interface ReportFinancialDAO {
                              @Param("cusCode") String cusCode, @Param("channel") String channel,
                              @Param("year") Integer year,
                              @Param("month") String month);
+
+
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "orgCode", column = "org_code"),
+            @Result(property = "comName", column = "com_name"),
+            @Result(property = "cusName", column = "cus_name"),
+            @Result(property = "cusCode", column = "cus_code"),
+            @Result(property = "money", column = "money"),
+            @Result(property = "channel", column = "channel"),
+            @Result(property = "apportionType", column = "apportion_type"),
+            @Result(property = "year", column = "year"),
+            @Result(property = "month", column = "month")
+    })
+    @Select(value = "<script> " +
+            "  SELECT * FROM `dp_financial`.`data_apportion` " +
+            "  WHERE cus_code = #{cusCode} and channel = #{channel} and year = #{year} and month = #{month}  </script> ")
+    List<DataApportion> getApportion2(@Param("cusCode") String cusCode, @Param("channel") String channel,
+                                     @Param("year") Integer year,
+                                     @Param("month") String month);
 
 
 
@@ -133,12 +179,16 @@ public interface ReportFinancialDAO {
             @Result(property = "dateInt", column = "date_int")
     })
     @Select(value = "<script> " +
-            " SELECT * FROM `dp_financial`.`data_customer` where date_int = #{dateInt} and cus_code = #{cusCode} </script> ")
-    List<DataCustomer> getCustomersByDateAndCode(@Param("dateInt") int dateInt, @Param("cusCode") String cusCode);
+            " SELECT * FROM `dp_financial`.`data_customer` where year = #{year} and month = #{month} and cus_code = #{cusCode} </script> ")
+    List<DataCustomer> getCustomersByDateAndCode( @Param("year") String year,
+                                                  @Param("month") String month,
+                                                  @Param("cusCode") String cusCode);
 
     @Select(value = "<script> " +
-            " SELECT gini FROM `dp_financial`.`data_material_price` where date_int = #{dateInt} and code = #{code} </script> ")
-    String getGini(@Param("dateInt") int dateInt, @Param("code") String code);
+            " SELECT * FROM `dp_financial`.`data_material_price` where year = #{year} and month = #{month} and code = #{code} </script> ")
+    DataMaterialPrice getGini(@Param("year") String year,
+                              @Param("month") String month,
+                              @Param("code") String code);
 
     @Results({
             @Result(property = "orgCode", column = "ORG_CODE"),
@@ -166,7 +216,14 @@ public interface ReportFinancialDAO {
             @Result(property = "appDyks", column = "app_dyks"),
             @Result(property = "appFdfl", column = "app_fdfl"),
             @Result(property = "appHyjf", column = "app_hyjf"),
-            @Result(property = "appTotal", column = "app_total")
+            @Result(property = "appTotal", column = "app_total"),
+
+            @Result(property = "year", column = "year"),
+            @Result(property = "month", column = "month"),
+            @Result(property = "guige", column = "guige"),
+            @Result(property = "fenlei1", column = "fenlei1"),
+            @Result(property = "fenlei2", column = "fenlei2"),
+            @Result(property = "def27Name", column = "DEF27_NAME")
     })
     @Select(value = "<script> " +
             "  SELECT * FROM `dp_financial`.`data_financial` where id  between #{b} and #{e}  </script> ")
@@ -228,7 +285,11 @@ public interface ReportFinancialDAO {
             "   app_dyks=#{e.appDyks}," +
             "   app_fdfl=#{e.appFdfl}, " +
             "   app_hyjf=#{e.appHyjf}," +
-            "   app_total=#{e.appTotal} " +
+            "   app_total=#{e.appTotal}, " +
+
+            "   guige=#{e.guige}," +
+            "   fenlei1=#{e.fenlei1}," +
+            "   fenlei2=#{e.fenlei2} " +
             "WHERE id = #{e.id}"+
             "</script> ")
     int updateFinancial(@Param("e") DataFinancial e);
@@ -249,4 +310,25 @@ public interface ReportFinancialDAO {
             "JSON_ARRAYAGG(id) as ids,\n" +
             "CUS_CODE,channel FROM `dp_financial`.`data_financial` WHERE report_income != 0 GROUP BY CUS_CODE,channel </script> ")
     List<DataFinancialDTO> getAllFinancialGroupByCusCodeAndChannel();
+
+
+    @Results({
+            @Result(property = "suitCode", column = "suit_code"),
+            @Result(property = "childCode", column = "child_code"),
+            @Result(property = "childName", column = "child_name"),
+            @Result(property = "childNum", column = "child_num")
+    })
+    @Select(value = "<script> " +
+            " SELECT * FROM `dp_financial`.`data_financial_suit` \n" +
+            "</script> ")
+    List<DataFinancialSuit> getAllFinancialSuit();
+
+    @Insert({ "insert into dp_financial.data_financial_deal" +
+            "(ORG_CODE, ORG_NAME, date_int, ORDERTRANTYPE, NAME, cus_code, MATERIALCODE, " +
+            "MATERIALNAME, NNUM,NORIGMNY, NCALTAXMNY,cus_type,channel,price_gini, discount_reduction, tax_rate, report_income," +
+            " app_scly,app_mdjm,app_dyks,app_fdfl,app_dsfx,app_dszy,app_hyjf, app_total, origin_suit_code, origin_suit_name " +
+            ") values(#{orgCode},#{orgName},#{dateInt},#{ordertrantype}, #{name}, #{cusCode}, #{materialcode}," +
+            " #{materialname}, #{nnum}, #{norigmny},#{ncaltaxmny},#{cusType},#{channel},#{priceGini},#{discountReduction},#{taxRate}, #{reportIncome}," +
+            " #{appScly},#{appMdjm},#{appDyks},#{appFdfl},#{appDsfx},#{appDszy},#{appHyjf},#{appTotal}, #{originSuitCode}, #{originSuitName})" })
+    int insertDataFinancialDeal(DataFinancialDeal d);
 }

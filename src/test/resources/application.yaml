@@ -17,3 +17,14 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
       maximum-pool-size: 10
+
+
+#logging:
+#  level:
+#    org.spring.springboot.dao: debug
+#    org.springframework.log: debug
+#    com.drplant: debug
+#
+#mybatis:
+#  configuration:
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

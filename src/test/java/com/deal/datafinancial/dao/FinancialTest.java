@@ -7,12 +7,15 @@ import com.deal.datafinancial.model.DataApportion;
 import com.deal.datafinancial.model.DataChannel;
 import com.deal.datafinancial.model.DataCustomer;
 import com.deal.datafinancial.model.DataFinancial;
+import com.deal.datafinancial.model.DataFinancialSuit;
 import com.deal.datafinancial.model.DataMaterialPrice;
 import com.deal.datafinancial.model.dto.DataFinancialDTO;
 import com.deal.datafinancial.model.dto.DataFinancialItemWeightDTO;
 import com.deal.datafinancial.service.DealDataImpl;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 
+import com.google.common.collect.Maps;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
@@ -21,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -67,8 +71,8 @@ public class FinancialTest {
 
     @Test
     public void testGetCustomer(){
-        DataCustomer d = reportFinancialDAO.getCustomersByDateAndCode(202206,"00150001").get(0);
-        System.out.println(JSON.toJSONString(d, true));
+//        DataCustomer d = reportFinancialDAO.getCustomersByDateAndCode(202206,"00150001").get(0);
+//        System.out.println(JSON.toJSONString(d, true));
     }
 
     @Test
@@ -81,16 +85,16 @@ public class FinancialTest {
 
     @Test
     public void testPriceGini(){
-        String gini = reportFinancialDAO.getGini(202206
-                ,"010630276");
-        System.out.println(gini);
+//        String gini = reportFinancialDAO.getGini(202206
+//                ,"010630276");
+//        System.out.println(gini);
     }
 
     @Test
     public void testGetCondition(){
-        DataChannel d = reportFinancialDAO.getByCondi("!",
-                "","子公司门店",20221);
-        System.out.println(JSON.toJSONString(d, true));
+//        DataChannel d = reportFinancialDAO.getByCondi("!",
+//                "","子公司门店",20221);
+//        System.out.println(JSON.toJSONString(d, true));
     }
 
     @Test
@@ -100,10 +104,17 @@ public class FinancialTest {
         System.out.println(JSON.toJSONString(d, true));
     }
 
+    /**
+     * @Description: [收入渠道-测试一个]
+     * @Title: testUpdate
+     * @Author: Wang Sai
+     * @Date: 2023-06-01
+     * @Return: void
+     */
     @Test
     public void testUpdateOne(){
         // 419034 没找到
-        int b = 1034208;
+        int b = 67420;
         impl.dealOne(b,b);
     }
 
@@ -126,6 +137,13 @@ public class FinancialTest {
         System.out.println(JSON.toJSONString(d, true));
     }
 
+    /**
+     * @Description: [收入渠道]
+     * @Title: testUpdate
+     * @Author: Wang Sai
+     * @Date: 2023-06-01
+     * @Return: void
+     */
     @Test
     public void testUpdate()  {
 
@@ -152,6 +170,14 @@ public class FinancialTest {
     }
 
 
+    /**
+     * @Description: [分摊处理]
+     * @Title: testUpdateApp
+     * @Author: Wang Sai
+     * @Date: 2023-06-01
+     * @Param:
+     * @Return: void
+     */
     @Test
     public void testUpdateApp()  {
 
@@ -183,8 +209,69 @@ public class FinancialTest {
     public void testUpdateOneApp(){
         // 419034 没找到
         Map<Integer, String> idWeight = impl.getAllWeight().stream().collect(Collectors.toMap(DataFinancialItemWeightDTO::getId, DataFinancialItemWeightDTO::getWeight, (v1, v2) -> v2));
-        int b = 517887;
+        int b = 1107443;
         impl.updateFinancialApp(b,b,idWeight);
     }
 
+
+
+    /**
+     * @Description: [拆分套盒]
+     * @Title: testInsertFinancialDeal
+     * @Author: Wang Sai
+     * @Date: 2023-06-01
+     * @Return: void
+     */
+    @Test
+    public void testInsertFinancialDeal()  {
+
+//        int begin = 700000;
+        int begin = 1;
+        int gap = 10000;
+        long end = reportFinancialDAO.getMaxFinancialId() + 1;
+
+        Map<String, List<DataFinancialSuit>> fatherSons = getFatherSons();
+        List<Future<?>> f = Lists.newArrayList();
+        while (begin < end){
+            int finalBegin = begin;
+            int finalEnd = finalBegin + gap - 1;
+            logger.info("work begin:{},end:{}",finalBegin, finalEnd);
+            Future<?> submit = executor.submit(() -> impl.copyIntoFinancial(finalBegin, finalEnd, fatherSons));
+//            impl.copyIntoFinancial(finalBegin, finalEnd, fatherSons);
+            f.add(submit);
+            begin = begin + gap;
+        }
+        for (Future<?> future : f) {
+            try {
+                future.get();
+            } catch (Exception ignored) {
+                ignored.printStackTrace();
+            }
+        }
+    }
+
+    private Map<String, List<DataFinancialSuit>> getFatherSons(){
+        List<DataFinancialSuit> allFinancialSuit = reportFinancialDAO.getAllFinancialSuit();
+        Map<String, List<DataFinancialSuit>> fatherSons = Maps.newHashMap();
+        for (DataFinancialSuit suit : allFinancialSuit) {
+            String fatherCode = suit.getSuitCode();
+            if (Strings.isNullOrEmpty(fatherCode)) {
+                continue;
+            }
+            List<DataFinancialSuit> dataFinancialSuits = fatherSons.get(fatherCode);
+            if(CollectionUtils.isEmpty(dataFinancialSuits)){
+                dataFinancialSuits = Lists.newArrayList();
+                fatherSons.put(fatherCode, dataFinancialSuits);
+            }
+            dataFinancialSuits.add(suit);
+        }
+        return fatherSons;
+    }
+
+    @Test
+    public void testOneInsertFinancialDeal(){
+        // 419034 没找到
+        int b = 701304;
+        impl.copyIntoFinancial(b,b,getFatherSons());
+    }
 }

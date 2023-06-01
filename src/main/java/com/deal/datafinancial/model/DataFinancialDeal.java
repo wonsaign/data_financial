@@ -3,7 +3,7 @@ package com.deal.datafinancial.model;
 import lombok.Data;
 
 @Data
-public class DataFinancial {
+public class DataFinancialDeal {
     private Integer id;
 
     private String orgCode;
@@ -11,10 +11,6 @@ public class DataFinancial {
     private String orgName;
 
     private Integer dateInt;
-
-    private String year;
-
-    private String month;
 
     private String ordertrantype;
 
@@ -32,8 +28,6 @@ public class DataFinancial {
 
     private String ncaltaxmny;
 
-    private String norigtaxmny;
-
     private String channel;
 
     private String priceGini;
@@ -45,7 +39,6 @@ public class DataFinancial {
     private String reportIncome;
 
     private String cusType;
-
 
     private String appScly;
 
@@ -63,13 +56,8 @@ public class DataFinancial {
 
     private String appTotal;
 
+    private String originSuitCode;
 
-    private String guige;
-
-    private String fenlei1;
-
-    private String fenlei2;
-
-    private String def27Name;
+    private String originSuitName;
 
 }

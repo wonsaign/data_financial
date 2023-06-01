@@ -6,6 +6,9 @@ import com.deal.datafinancial.model.DataApportion;
 import com.deal.datafinancial.model.DataChannel;
 import com.deal.datafinancial.model.DataCustomer;
 import com.deal.datafinancial.model.DataFinancial;
+import com.deal.datafinancial.model.DataFinancialDeal;
+import com.deal.datafinancial.model.DataFinancialSuit;
+import com.deal.datafinancial.model.DataMaterialPrice;
 import com.deal.datafinancial.model.dto.DataFinancialDTO;
 import com.deal.datafinancial.model.dto.DataFinancialItemWeightDTO;
 import com.google.common.base.Strings;
@@ -14,6 +17,7 @@ import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -45,12 +49,12 @@ public class DealDataImpl {
 
     private static final Logger logger = LoggerFactory.getLogger(DealDataImpl.class);
 
-    private final static int deal_year_month_custom = 20204;
+    private final static int deal_year_month_custom = 20214;
     // 不变
-    private final static int deal_year_month_channel = 20201;
+    private final static int deal_year_month_channel = 20214;
 
     private final static int deal_year = 2020;
-    private final static String deal_month = "101112";
+    private final static String deal_month = "1";
 
     private final static Set<Integer> appsUsedIds = Sets.newHashSet();
 
@@ -60,18 +64,57 @@ public class DealDataImpl {
     public void updateFinancial(int begin, int end){
         List<DataFinancial> d = reportFinancialDAO.getFinancialByIds(begin, end);
         for (DataFinancial e : d) {
-            e.setDateInt(deal_year_month_custom);
+            // e.setDateInt(deal_year_month_custom);
+            e.setYear("2022");
+            e.setMonth("12");
             // 客户类型和税率
             setTaxRateAndCusType(e);
             // 一口价
-            setPriceGini(e);
+            setDataMaterialPrice(e);
             // 渠道和折扣还原
             setChannel(e);
             // 除税收入
             setReportIncome(e);
             // 依赖数据库的结果，现在还没有
-            // setApportion(e, idWeight);
+//             setApportion(e, idWeight);
             reportFinancialDAO.updateFinancial(e);
+        }
+    }
+
+    public // synchronized
+    void copyIntoFinancial(int begin, int end, Map<String, List<DataFinancialSuit>> fatherSons){
+        List<DataFinancial> d = reportFinancialDAO.getFinancialByIds(begin, end);
+        for (DataFinancial e : d) {
+
+            String materialcode = e.getMaterialcode();
+            if(!Strings.isNullOrEmpty(materialcode)){
+                List<DataFinancialSuit> dataFinancialSuits = fatherSons.get(materialcode);
+                if (!CollectionUtils.isEmpty(dataFinancialSuits)) {
+                    for (DataFinancialSuit dfs : dataFinancialSuits) {
+                        DataFinancialDeal deal = new DataFinancialDeal();
+                        BeanUtils.copyProperties(e, deal);
+                        deal.setMaterialcode(dfs.getChildCode());
+                        deal.setMaterialname(dfs.getChildName());
+                        deal.setNnum(String.valueOf(dfs.getChildNum() * Integer.parseInt(deal.getNnum())));
+
+                        deal.setOriginSuitCode(e.getMaterialcode());
+                        deal.setOriginSuitName(e.getMaterialname());
+                        if(!Strings.isNullOrEmpty(deal.getMaterialcode())){
+                            reportFinancialDAO.insertDataFinancialDeal(deal);
+                        }
+                    }
+//                    continue;
+                }
+            }
+            DataFinancialDeal deal = new DataFinancialDeal();
+            BeanUtils.copyProperties(e, deal);
+            if(fatherSons.containsKey(deal.getMaterialcode())){
+                deal.setOriginSuitCode("Origin");
+                deal.setOriginSuitName("原套盒");
+            }
+            if(!Strings.isNullOrEmpty(deal.getMaterialcode())){
+                reportFinancialDAO.insertDataFinancialDeal(deal);
+            }
         }
     }
 
@@ -101,7 +144,7 @@ public class DealDataImpl {
             // 客户类型和税率
             setTaxRateAndCusType(e);
             // 一口价
-            setPriceGini(e);
+            setDataMaterialPrice(e);
             // 渠道和折扣还原
             setChannel(e);
             // 除税收入
@@ -147,10 +190,11 @@ public class DealDataImpl {
         }
     }
 
-    private void setChannel( DataFinancial origin){
+    private void setChannel(DataFinancial origin){
         String orgCode = origin.getOrgCode();
         String ordertrantype = origin.getOrdertrantype();
         String cusType = origin.getCusType();
+        String def27Name = Strings.isNullOrEmpty(origin.getDef27Name()) ? null : origin.getDef27Name();// 电商平台
         if(Strings.isNullOrEmpty(orgCode)){
             return;
         }
@@ -158,9 +202,10 @@ public class DealDataImpl {
         if(!ChannelType.BZ.getCode().equalsIgnoreCase(orgCode) &&
                 !ChannelType.MD.getCode().equalsIgnoreCase(orgCode) &&
                 !ChannelType.GC.getCode().equalsIgnoreCase(orgCode)){
-            d = reportFinancialDAO.getByCondi("!", "", cusType, deal_year_month_channel);
+            // FIXME: 2023/6/1 新增一个条件，电商平台 原始数据会有，ePlatform
+            d = reportFinancialDAO.getByCondi("!", null, cusType, def27Name, origin.getYear(), origin.getMonth());
         }else {
-            d = reportFinancialDAO.getByCondi(orgCode, ordertrantype, cusType, deal_year_month_channel);
+            d = reportFinancialDAO.getByCondi(orgCode, ordertrantype, cusType, def27Name, origin.getYear(), origin.getMonth());
         }
         if(d == null){
             // logger.error("内部数据跳过，orgCode:{}, ordertrantype:{}, cusType:{}",orgCode, ordertrantype, cusType);
@@ -168,12 +213,13 @@ public class DealDataImpl {
         }
         origin.setChannel(d.getChannel());
         String priceGini = origin.getPriceGini();
-        BigDecimal discountReduction = BigDecimal.valueOf(Double.parseDouble(origin.getNcaltaxmny())).divide(
+        BigDecimal discountReduction = BigDecimal.valueOf(Double.parseDouble(origin.getNorigtaxmny())).divide(
                 BigDecimal.valueOf(Double.parseDouble(d.getNcaltaxmnyRestore())), 2, RoundingMode.HALF_UP);
         // 小植系数不同
         if("小植-直营".equalsIgnoreCase(d.getChannel()) &&
+                !"非独店终端".equalsIgnoreCase(origin.getCusType()) &&
                 !Strings.isNullOrEmpty(priceGini) && Double.parseDouble(priceGini) > 0){
-            discountReduction = BigDecimal.valueOf(Double.parseDouble(origin.getNcaltaxmny())).divide(
+            discountReduction = BigDecimal.valueOf(Double.parseDouble(origin.getNorigtaxmny())).divide(
                     BigDecimal.valueOf(Double.parseDouble(priceGini)), 2, RoundingMode.HALF_UP);
         }
         origin.setDiscountReduction(discountReduction.toString());
@@ -183,8 +229,11 @@ public class DealDataImpl {
         if(Strings.isNullOrEmpty(origin.getCusCode())){
             return;
         }
-        List<DataCustomer> list = reportFinancialDAO.getCustomersByDateAndCode(origin.getDateInt()
-                , origin.getCusCode());
+        // FIXME: 2023/6/1 更改为year+month处理
+        List<DataCustomer> list = reportFinancialDAO.getCustomersByDateAndCode(
+                origin.getYear(),
+                origin.getMonth(),
+                origin.getCusCode());
         if(CollectionUtils.isEmpty(list)){
             return;
         }
@@ -194,10 +243,16 @@ public class DealDataImpl {
         origin.setTaxRate(d.getTaxRate());
     }
 
-    private void setPriceGini(DataFinancial origin){
-        String gini = reportFinancialDAO.getGini(origin.getDateInt()
+    private void setDataMaterialPrice(DataFinancial origin){
+        DataMaterialPrice p = reportFinancialDAO.getGini(origin.getYear(), origin.getMonth()
                 ,origin.getMaterialcode());
-        origin.setPriceGini(gini);
+        if (p != null) {
+            origin.setPriceGini(p.getGini());
+            origin.setFenlei1(p.getFenlei1());
+            origin.setFenlei2(p.getFenlei2());
+            origin.setGuige(p.getGuige());
+        }
+
     }
 
 
@@ -245,8 +300,12 @@ public class DealDataImpl {
     private void setApportion(DataFinancial origin, Map<Integer, String> idWeight){
 
         List<DataApportion> apps
-                = reportFinancialDAO.getApportion(origin.getOrgCode(), origin.getCusCode(), origin.getChannel(),
+                = reportFinancialDAO.getApportion2(origin.getCusCode(), origin.getChannel(),
                 deal_year, deal_month);
+
+//        List<DataApportion> apps
+//                = reportFinancialDAO.getApportion(origin.getOrgCode(), origin.getCusCode(), origin.getChannel(),
+//                deal_year, deal_month);
 
         if(CollectionUtils.isEmpty(apps)){
             return;
@@ -266,7 +325,9 @@ public class DealDataImpl {
             appsUsedIds.add(app.getId());
             String appV
                     = BigDecimal.valueOf(Double.parseDouble(app.getMoney())).multiply(BigDecimal.valueOf(Double.parseDouble(weight))).toString();
-
+            if(ApportionType.fdfl.getCode().equalsIgnoreCase(app.getApportionType())){
+                origin.setAppFdfl(appV);
+            }
             if(ApportionType.sclyd.getCode().equalsIgnoreCase(app.getApportionType())){
                 origin.setAppScly(appV);
             }
@@ -283,7 +344,6 @@ public class DealDataImpl {
                 origin.setAppDyks(appV);
             }
             if(ApportionType.fdfl.getCode().equalsIgnoreCase(app.getApportionType())){
-                app.getChannel()
                 origin.setAppFdfl(appV);
             }
             if(ApportionType.hyjf.getCode().equalsIgnoreCase(app.getApportionType())){

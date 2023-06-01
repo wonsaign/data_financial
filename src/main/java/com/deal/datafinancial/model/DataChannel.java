@@ -25,4 +25,7 @@ public class DataChannel {
 
     private String reportIncome;
 
+    private String year;
+    private String month;
+
 }
